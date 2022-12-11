@@ -27,23 +27,21 @@ export default function Home() {
     datasetX = datasetX.reduce((prev, next) => {
       return prev.concat(next);
     });
-    datasetX = tf.data.array(datasetX);
     datasetY = datasetY.reduce((prev, next) => {
       return prev.concat(next);
     });
     datasetY = tf.oneHot(tf.tensor1d(datasetY, "int32"), datasets.length);
-    datasetY = tf.data.array(datasetY);
-    let xyDataset = tf.data.zip({ xs: datasetX, ys: datasetY }).batch(1);
-    await clf.fitDataset(xyDataset, {
-      epochs: 100,
+    datasetX = tf.stack(datasetX);
+    await clf.fit(datasetX, datasetY, {
+      batchSize: 2,
+      epochs: 10,
+      shuffle: true,
       callbacks: {
         onEpochBegin: (e, _) => {
           console.log(e);
         },
       },
     });
-    let pred = tf.stack([tf.browser.fromPixels(imagesRef.current[1][0])]);
-    console.log(clf.predict(pred).dataSync()[0]);
   };
 
   const doMakeModel = () => {
