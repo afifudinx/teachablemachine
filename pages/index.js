@@ -15,30 +15,35 @@ export default function Home() {
   const imagesRef = useRef([]);
 
   const doTrainModel = async () => {
+    const clf = doMakeModel();
     let datasetX = imagesRef.current.map((images, _) => {
       return images.map((image, _) => {
         return tf.browser.fromPixels(image);
       });
     });
-    let datasetY = datasets.map((dataset, i) => {
+    let datasetY = datasets.map((_, i) => {
       return Array.from({ length: datasetX[i].length }, (_, __) => i);
     });
     datasetX = datasetX.reduce((prev, next) => {
       return prev.concat(next);
     });
+    datasetX = tf.data.array(datasetX);
     datasetY = datasetY.reduce((prev, next) => {
       return prev.concat(next);
     });
-    console.log(tf.tensor([1, 2, 3, 4, 5, 6, 7, 8], [2, 2, 2]).print());
-    console.log(tf.oneHot(tf.tensor1d(datasetY, "int32"), 3).print());
-    const clf = doMakeModel();
-    return clf.fit(
-      tf.stack(datasetX),
-      tf.oneHot(tf.tensor1d(datasetY, "int32"), datasets.length),
-      {
-        epochs: 10,
-      }
-    );
+    datasetY = tf.oneHot(tf.tensor1d(datasetY, "int32"), datasets.length);
+    datasetY = tf.data.array(datasetY);
+    let xyDataset = tf.data.zip({ xs: datasetX, ys: datasetY }).batch(1);
+    await clf.fitDataset(xyDataset, {
+      epochs: 100,
+      callbacks: {
+        onEpochBegin: (e, _) => {
+          console.log(e);
+        },
+      },
+    });
+    let pred = tf.stack([tf.browser.fromPixels(imagesRef.current[1][0])]);
+    console.log(clf.predict(pred).dataSync()[0]);
   };
 
   const doMakeModel = () => {
@@ -68,7 +73,7 @@ export default function Home() {
     clf.add(tf.layers.dense({ units: datasets.length, activation: "softmax" }));
     clf.add(tf.layers.flatten());
     clf.compile({
-      optimizer: tf.train.sgd(),
+      optimizer: tf.train.sgd(0.01),
       loss: "categoricalCrossentropy",
       metrics: "accuracy",
     });
